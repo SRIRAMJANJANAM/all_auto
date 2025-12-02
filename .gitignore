@@ -3,9 +3,11 @@
 *.pdf
 *.csv
 *.xlsx
-*.py
 *.js
 prompt.txt
 chrome-profile
 .html
 att.py
+chormedriver.exe
+chormedriver.log
+scanned_products.jsonl
