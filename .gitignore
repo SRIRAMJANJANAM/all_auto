@@ -8,7 +8,7 @@ prompt.txt
 chrome-profile
 .html
 att.py
-chormedriver.exe
-chormedriver.log
+chromedriver.exe
+chromedriver.log
 scanned_products.jsonl
 open.py
