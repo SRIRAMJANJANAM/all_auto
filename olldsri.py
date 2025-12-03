@@ -1,5 +1,6 @@
+
+
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -221,10 +222,13 @@ def click_reauthorize(driver):
 def switch_account(driver, email):
     try:
         print(f"[switch_account] Switching to {email}")
-
+        
+        # Click on Switch Account button
         if not safe_click(driver, (By.XPATH, "//div[contains(text(),'Switch Account')]")):
             print("[switch_account] Could not click 'Switch Account'")
             return False
+
+        # Wait for Choose Account UI
         WebDriverWait(driver, 15).until(
             EC.visibility_of_element_located((By.XPATH, "//div[contains(text(),'Choose Account')]"))
         )
@@ -236,22 +240,27 @@ def switch_account(driver, email):
         time.sleep(1)
         print("[switch_account] Typed email")
 
+        # Optional: click the form button if available
         try:
             driver.find_element(By.XPATH, "//form//button[@type='button']").click()
             time.sleep(1)
         except Exception as e:
             print(f"[switch_account] Optional form button click failed: {e}")
+
+        # Click the dropdown to show options
         dropdown = WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "div[data-baseweb='select']"))
         )
         dropdown.click()
         print("[switch_account] Clicked dropdown")
 
+        # Get all dropdown options
         options = WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "ul[role='listbox'] li[role='option']"))
         )
         print(f"[switch_account] Found {len(options)} options in dropdown.")
 
+        # Print all emails found in each option
         print("[switch_account] All emails extracted from options:")
         all_emails_in_options = []
         for i, opt in enumerate(options):
@@ -262,6 +271,7 @@ def switch_account(driver, email):
 
         selected = None
 
+        # 1) Find first exact full-text match (normal order)
         for opt in options:
             opt_text = opt.text.strip()
             if opt_text.lower() == email.lower():
@@ -269,6 +279,7 @@ def switch_account(driver, email):
                 selected = opt
                 break
 
+        # 2) If no exact full-text match, find first exact email match inside option text (normal order)
         if not selected:
             for opt in options:
                 opt_text = opt.text.strip()
@@ -279,6 +290,7 @@ def switch_account(driver, email):
                     selected = opt
                     break
 
+        # 3) Retry logic if still no match
         if not selected:
             print(f"[switch_account] No match for '{email}', retrying in 2 seconds...")
             time.sleep(2)
@@ -297,12 +309,14 @@ def switch_account(driver, email):
             safe_click(driver, (By.CSS_SELECTOR, "button[aria-label='Close']"))
             return False
 
+        # Scroll into view and click matched option using JS click
         driver.execute_script("arguments[0].scrollIntoView({block:'center'});", selected)
         time.sleep(0.5)
         print(f"[switch_account] Clicking on matched option: '{selected.text.strip()}'")
         driver.execute_script("arguments[0].click();", selected)
         time.sleep(1)
 
+        # Click Continue button if enabled
         try:
             continue_btn = WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Continue')]"))
@@ -315,6 +329,7 @@ def switch_account(driver, email):
             print("[switch_account] Clicking 'Continue'")
             continue_btn.click()
 
+            # Wait for next page element as confirmation
             WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.ID, "addBotButton"))
             )
@@ -335,6 +350,7 @@ def reauthorize_gsheets(driver):
     try:
         print("[reauthorize_gsheets] Starting Google Sheets reauthorization process")
 
+        # Check if account has any bots
         try:
             WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "createFirstBotButton")))
             print("[reauthorize_gsheets] Account has no bots, skipping")
@@ -342,6 +358,7 @@ def reauthorize_gsheets(driver):
         except TimeoutException:
             pass
 
+        # Find and click on the first bot
         bot_cards = WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.XPATH, "//section[@data-baseweb='card' and @data-qa='bot-card']"))
         )
@@ -354,10 +371,12 @@ def reauthorize_gsheets(driver):
         driver.execute_script("arguments[0].click();", bot_cards[0])
         time.sleep(2)
 
+        # Click on Cloud Integrations
         if not safe_click(driver, (By.ID, "integrations-icon")):
             return False
         time.sleep(1)
 
+        # Try to find and click on Google Sheets in Cloud Integrations
         gs_found = False
         try:
             gs_tile = WebDriverWait(driver, 10).until(
@@ -374,6 +393,7 @@ def reauthorize_gsheets(driver):
         except Exception as e:
             print(f"[reauthorize_gsheets] Google Sheets integration not found: {e}")
 
+        # If Google Sheets not found in Cloud Integrations, try My Integrations
         if not gs_found:
             print("[cloud_integrations] Falling back to 'My Integrations' tab")
             if safe_click(driver, (By.XPATH, "//button[@data-qa='My Integrations' and text()='My Integrations']")):
@@ -405,6 +425,7 @@ def reauthorize_gsheets(driver):
             else:
                 print("[cloud_integrations] Could not switch to 'My Integrations' tab")
 
+        # Return to bots page
         back_success = safe_click(driver, (By.XPATH, "//span[text()='Bots']"))
         if not back_success:
             back_success = safe_click(driver, (By.CSS_SELECTOR, "button[aria-label='Back']"))
@@ -439,61 +460,41 @@ def main():
     df = pd.read_csv(sheet_url).dropna(subset=["ID"])
     accounts = df["ID"].tolist()
 
-    print("🚀 Starting Chrome with dedicated automation profile...")
-    
-    service = Service("chromedriver.exe")  # Path to your chromedriver.exe
-    
     options = Options()
-
-    options.add_argument(r"--user-data-dir=D:\ChromeAutomation\Profile5")
-    options.add_argument("--profile-directory=Profile 5")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--log-level=3")
+    options.add_argument("--user-data-dir=D:/ORAI/test/chrome-profile")
+    options.add_argument("--remote-debugging-port=9222")
+    options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--start-maximized")
-    
+    options.add_experimental_option("detach", True)
+
+    driver = webdriver.Chrome(options=options)
+    driver.get("https://xbotic.cbots.live/admin/login")
+
     try:
-        driver = webdriver.Chrome(service=service, options=options)
-        wait = WebDriverWait(driver, 15)
-        print("✅ Chrome started successfully!")
+        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.NAME, "email")))
+        driver.find_element(By.NAME, "email").send_keys(MAIN_EMAIL)
+        driver.find_element(By.NAME, "password").send_keys(MAIN_PASSWORD)
+        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-        driver.get("https://xbotic.cbots.live/admin/login")
-        print("🌐 Opened login page")
+        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "addBotButton")))
+        print(f"[main] Logged in as {MAIN_EMAIL}")
 
-        try:
-            # Login with main credentials
-            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.NAME, "email")))
-            driver.find_element(By.NAME, "email").send_keys(MAIN_EMAIL)
-            driver.find_element(By.NAME, "password").send_keys(MAIN_PASSWORD)
-            driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-            print(f"🔑 Logging in as {MAIN_EMAIL}...")
+        for email in accounts:
+            print(f"[main] Processing {email}")
+            if switch_account(driver, email):
+                reauthorize_gsheets(driver)
+            else:
+                print(f"[main] Failed to switch to {email}")
 
-            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "addBotButton")))
-            print(f"✅ Logged in as {MAIN_EMAIL}")
+        print("[main] All accounts processed successfully")
 
-            for email in accounts:
-                print(f"\n🔧 Processing {email}")
-                if switch_account(driver, email):
-                    print(f"✅ Successfully switched to {email}")
-                    reauthorize_gsheets(driver)
-                else:
-                    print(f"❌ Failed to switch to {email}")
+    except Exception:
+        print("[main] Exception in main flow")
+        traceback.print_exc()
 
-            print("\n🎉 All accounts processed successfully!")
-
-        except Exception:
-            print("❌ Exception in main flow")
-            traceback.print_exc()
-
-        finally:
-            input("\nPress ENTER to close browser...")
-            driver.quit()
-            print("👋 Browser closed.")
-
-    except Exception as e:
-        print(f"❌ Error starting Chrome: {e}")
-
+    finally:
+        driver.quit()
+        print("[main] Browser closed.")
 
 if __name__ == "__main__":
     main()
