@@ -1,85 +1,54 @@
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 import time
 
-def use_automation_profile():
-    service = Service("chromedriver.exe")
+options = webdriver.ChromeOptions()
+options.add_argument(r"--user-data-dir=D:\ChromeAutomation\Profile1")
 
-    options = webdriver.ChromeOptions()
+driver = webdriver.Chrome(options=options)
+driver.get("https://web.whatsapp.com")
 
-    options.add_argument(r"--user-data-dir=D:\ChromeAutomation\Profile5")
-    options.add_argument("--profile-directory=Profile 5")
+print("📱 Login completed? Waiting...")
+time.sleep(20)
 
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--log-level=3")
+print("🤖 Auto-reply started (WhatsApp Business)...")
 
-    print("🚀 Starting Chrome with dedicated automation profile...")
-
+while True:
     try:
-        driver = webdriver.Chrome(service=service, options=options)
-        wait = WebDriverWait(driver, 15)
-        print("✅ Chrome started successfully!")
+        # 🔥 Find unread chat badges (green numbers)
+        unread_badges = driver.find_elements(
+            By.XPATH,
+            "//span[contains(@class,'unread')] | //span[text() and number(text())>=1]"
+        )
 
-        driver.get("https://youtu.be/a0mAojKR9Bk?si=2jd9jDLx-Buc5Elc")
-        print("📺 Opened YouTube video")
+        for badge in unread_badges:
+            try:
+                badge.click()
+                time.sleep(1)
 
-        time.sleep(5)
+                # Get chat title (number or name)
+                chat_title = driver.find_element(
+                    By.XPATH,
+                    "//header//span[@dir='auto']"
+                ).text
 
-        print("🎯 Looking for like button...")
-        try:
-            containers = driver.find_elements(By.CSS_SELECTOR, "ytd-menu-renderer, #top-level-buttons, #actions")
-            for container in containers:
-                like_buttons = container.find_elements(By.CSS_SELECTOR, "button[aria-label*='like this video']")
-                if like_buttons:
-                    like_button = like_buttons[0]
-                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", like_button)
-                    time.sleep(1)
+                print(f"📩 New message from: {chat_title}")
 
-                    try:
-                        is_pressed = like_button.get_attribute("aria-pressed")
-                        if is_pressed == "true":
-                            print("ℹ️ Video already liked!")
-                        else:
-                            like_button.click()
-                            print("👍 Liked the video!")
-                    except:
-                        like_button.click()
-                        print("👍 Liked the video!")
-                    break
-            else:
-                print("❌ Like button not found in containers")
-        except Exception as e:
-            print(f"❌ Error: {e}")
+                message_box = driver.find_element(
+                    By.XPATH,
+                    "//footer//div[@contenteditable='true']"
+                )
+                message_box.click()
+                message_box.send_keys("Hi")
+                message_box.send_keys(Keys.ENTER)
 
-        input("Press ENTER to close browser...")
-        driver.quit()
+                print("✅ Replied: Hi")
 
-    except Exception as e:
-        print(f"❌ Error: {e}")
+            except Exception:
+                pass
 
-use_automation_profile()
+        time.sleep(3)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    except Exception:
+        time.sleep(3)
